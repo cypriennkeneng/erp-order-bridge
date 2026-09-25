@@ -1,0 +1,18 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    session: false
+
+    http_client:
+        scoped_clients:
+            # Every call to the ERP goes through this client: base URL,
+            # bearer token and a hard timeout live in one place.
+            erp.client:
+                base_uri: '%env(ERP_BASE_URL)%'
+                auth_bearer: '%env(ERP_API_TOKEN)%'
+                timeout: 10
+                headers:
+                    Accept: 'application/json'
+
+when@test:
+    framework:
+        test: true

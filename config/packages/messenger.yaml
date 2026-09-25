@@ -1,0 +1,31 @@
+framework:
+    messenger:
+        failure_transport: failed
+
+        transports:
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    # On PostgreSQL the worker is woken up by LISTEN/NOTIFY and
+                    # looks for delayed (retried) messages only every 60 s by
+                    # default, which would stretch a 10 s retry to a minute.
+                    check_delayed_interval: 1000
+                # An unavailable ERP is retried with exponential backoff:
+                # 10 s, 30 s, 90 s, 270 s, 810 s. After that the message
+                # lands in the "failed" transport and the order is marked failed.
+                retry_strategy:
+                    max_retries: 5
+                    delay: 10000
+                    multiplier: 3
+                    max_delay: 3600000
+            failed: 'doctrine://default?queue_name=failed'
+
+        routing:
+            App\Message\ExportOrderToErp: async
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                async: 'in-memory://'
+                failed: 'in-memory://'

@@ -1,0 +1,49 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: '!ChangeMe!'
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "app", "-U", "app"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - database_data:/var/lib/postgresql/data:rw
+
+  # One-shot: brings the schema up to date, then exits.
+  migrate:
+    build: .
+    environment: &app-env
+      APP_ENV: dev
+      DATABASE_URL: 'postgresql://app:!ChangeMe!@database:5432/app?serverVersion=16&charset=utf8'
+      ERP_BASE_URL: 'http://app:8000/_fake-erp/'
+    depends_on:
+      database:
+        condition: service_healthy
+    command: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+  # HTTP API (webhook, read API) and, in dev, the fake ERP.
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Consumes the export queue. Restart it on deploy so it picks up new code.
+  worker:
+    build: .
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M -vv
+
+volumes:
+  database_data:

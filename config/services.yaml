@@ -1,0 +1,14 @@
+parameters:
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $webhookSecret: '%env(WEBHOOK_SECRET)%'
+            string $apiToken: '%env(API_TOKEN)%'
+
+    App\:
+        resource: '../src/'
+
+    App\Erp\ErpClientInterface: '@App\Erp\HttpErpClient'

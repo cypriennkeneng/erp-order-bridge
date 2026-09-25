@@ -1,0 +1,32 @@
+security:
+    providers:
+        api_clients:
+            memory:
+                users:
+                    api-client: { roles: ['ROLE_API'] }
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt)/
+            security: false
+
+        # Webhooks are authenticated by their HMAC signature, not by a user
+        # (see App\EventListener\WebhookSignatureListener).
+        webhooks:
+            pattern: ^/api/webhooks/
+            security: false
+
+        # Only reachable in the dev environment (see config/routes.yaml).
+        fake_erp:
+            pattern: ^/_fake-erp/
+            security: false
+
+        api:
+            pattern: ^/api/
+            stateless: true
+            provider: api_clients
+            access_token:
+                token_handler: App\Security\ApiTokenHandler
+
+    access_control:
+        - { path: ^/api/orders, roles: ROLE_API }

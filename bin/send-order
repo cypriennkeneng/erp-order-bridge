@@ -1,0 +1,41 @@
+#!/usr/bin/env php
+<?php
+
+// Sends a signed sample order to the webhook, the way a shop would.
+//
+//   bin/send-order                     order 10042 to http://localhost:8000
+//   bin/send-order 10043               another order number
+//   bin/send-order 10044 UNKNOWN-1     an article the fake ERP rejects
+
+declare(strict_types=1);
+
+$orderNumber = $argv[1] ?? '10042';
+$sku = $argv[2] ?? 'PAL-EUR-1';
+$baseUrl = getenv('BRIDGE_URL') ?: 'http://localhost:8000';
+$secret = getenv('WEBHOOK_SECRET') ?: 'change-me-webhook-secret';
+
+$body = json_encode([
+    'source' => 'shopware',
+    'orderNumber' => $orderNumber,
+    'currency' => 'EUR',
+    'customer' => ['email' => 'jane@example.com', 'name' => 'Jane Doe'],
+    'lines' => [
+        ['sku' => $sku, 'name' => 'Euro pallet, new', 'quantity' => 2, 'unitPrice' => 1999],
+        ['sku' => 'PAL-IND-2', 'name' => 'Industrial pallet', 'quantity' => 1, 'unitPrice' => 2550],
+    ],
+    'totalGross' => 6548,
+], \JSON_THROW_ON_ERROR);
+
+$context = stream_context_create(['http' => [
+    'method' => 'POST',
+    'header' => implode("\r\n", [
+        'Content-Type: application/json',
+        'X-Signature: sha256='.hash_hmac('sha256', $body, $secret),
+    ]),
+    'content' => $body,
+    'ignore_errors' => true,
+]]);
+
+$response = file_get_contents($baseUrl.'/api/webhooks/orders', false, $context);
+
+echo ($http_response_header[0] ?? 'no response').\PHP_EOL.$response.\PHP_EOL;
